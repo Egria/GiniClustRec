@@ -4,6 +4,7 @@ import pandas
 from typing import Dict
 from function.GiniClust_parameters import GiniClust_Parameters
 from function.GiniClust_Preprocess import giniClust_preprocess
+from function.GiniClust_Filtering import giniClust_filtering
 
 # Set work directory
 workdir = os.getcwd()
@@ -40,4 +41,10 @@ params.set_experiment_id(experiment_id)
 # Preprocess
 exprM_results : Dict[str, pandas.DataFrame] = {}
 exprM_results["raw"] = giniClust_preprocess(args, params)
+exprM_rawCounts = exprM_results["raw"]
+
+# Filtering
+exprM_results["filter"] = giniClust_filtering(exprM_rawCounts, args, params)
+exprM_rawCounts_filter = exprM_results["filter"]
+
 
