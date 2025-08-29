@@ -5,6 +5,7 @@ from typing import Dict
 from function.GiniClust_parameters import GiniClust_Parameters
 from function.GiniClust_Preprocess import giniClust_preprocess
 from function.GiniClust_Filtering import giniClust_filtering
+from function.GiniClust_Fitting import giniClust_fitting
 
 # Set work directory
 workdir = os.getcwd()
@@ -46,5 +47,8 @@ exprM_rawCounts = exprM_results["raw"]
 # Filtering
 exprM_results["filter"] = giniClust_filtering(exprM_rawCounts, args, params)
 exprM_rawCounts_filter = exprM_results["filter"]
+
+# Gene selection
+giniClust_fitting(exprM_rawCounts_filter, args, params)
 
 
