@@ -6,6 +6,7 @@ from function.GiniClust_parameters import GiniClust_Parameters
 from function.GiniClust_Preprocess import giniClust_preprocess
 from function.GiniClust_Filtering import giniClust_filtering
 from function.GiniClust_Fitting import giniClust_fitting
+from function.GiniClust_Clustering import giniClust_clustering
 
 # Set work directory
 workdir = os.getcwd()
@@ -51,4 +52,10 @@ exprM_rawCounts_filter = exprM_results["filter"]
 # Gene selection
 geneList_final = giniClust_fitting(exprM_rawCounts_filter, args, params)
 
+# Clustering
+cluster_results = giniClust_clustering(exprM_rawCounts_filter, args, params, geneList_final)
+cell_cell_distance = cluster_results["cell_cell_dist"]
+c_membership = cluster_results["c_membership"]
+clustering_membership_r = cluster_results["clustering_membership_r"]
+rare_cells_list_all = cluster_results["rare_cell"]
 
