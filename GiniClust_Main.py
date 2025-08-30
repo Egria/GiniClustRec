@@ -49,6 +49,6 @@ exprM_results["filter"] = giniClust_filtering(exprM_rawCounts, args, params)
 exprM_rawCounts_filter = exprM_results["filter"]
 
 # Gene selection
-giniClust_fitting(exprM_rawCounts_filter, args, params)
+geneList_final = giniClust_fitting(exprM_rawCounts_filter, args, params)
 
 

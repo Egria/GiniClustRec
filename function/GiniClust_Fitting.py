@@ -27,7 +27,7 @@ def calcul_gini(x: pandas.Series, unbiased: bool = True, na_rm:bool = False) -> 
     dsum = numpy.dot(ox, weights)
     return dsum / (mu * N)
 
-def giniClust_fitting(exprM_raw_counts_filter:pandas.DataFrame, main_args: argparse.Namespace, expr_params: GiniClust_Parameters) -> pandas.DataFrame:
+def giniClust_fitting(exprM_raw_counts_filter:pandas.DataFrame, main_args: argparse.Namespace, expr_params: GiniClust_Parameters) -> pandas.Index:
     assert main_args.type in ['RNA-seq', 'qPCR']
     if main_args.type == 'RNA-seq':
         gini = exprM_raw_counts_filter.apply(lambda x: calcul_gini(x.astype(float)), axis=1)
@@ -157,8 +157,6 @@ def giniClust_fitting(exprM_raw_counts_filter:pandas.DataFrame, main_args: argpa
     normalized_gini_score2[id_genes_loess_fit] = residuals2
     normalized_gini_score2[id_outliers_loess_fit] = gini[id_outliers_loess_fit].to_numpy() - gini_outliers_predict
     gini_fitted2 = gini - normalized_gini_score2
-    print(gini_fitted2)
-    print(exprM_stat1.shape)
     exprM_stat1 = exprM_stat1.loc[:, ["Maxs", "Gini", "log2.Maxs", "Gini.fitted", "Norm.Gini"]].copy()
     exprM_stat1["Gini.fitted2"] = gini_fitted2
     exprM_stat1["Norm.Gini2"] = normalized_gini_score2
@@ -198,6 +196,57 @@ def giniClust_fitting(exprM_raw_counts_filter:pandas.DataFrame, main_args: argpa
     pyplot.ylabel("GeneCount")
     pyplot.tight_layout()
     pyplot.savefig(out_path)
+
+    # save results
+    if main_args.type == "qPCR": # qPCR pipeline
+        gini_related_table = giniIndex.merge(exprM_stat2, left_index=True, right_index=True).reset_index()
+        gini_related_table = gini_related_table.rename(columns={"index": "Row.names"})
+        gini_related_table_qpcr = gini_related_table[["Row.names", "log2.Maxs", "Gini", "gini_sign", "Norm.Gini2"]]
+        # Sign of Gini index. 1 for up-regulation and -1 for down-regulation.
+        gini_related_table_qpcr = gini_related_table_qpcr.sort_values("Norm.Gini2", ascending=False)
+        gini_related_table_qpcr.columns = ["Gene", "log2( Max Expression Level )", "Raw Gini Index", "Sign of Gini Index", "Normalized Gini Index"]
+        gini_related_table_qpcr.to_csv(os.path.join(main_args.out, "Gini_related_table_qPCR.csv"), index=False)
+        out_pdf = os.path.join(main_args.out, "figures", f"{expr_params.experiment_id}_smoothScatter_normGini_genes.pdf")
+        pyplot.figure(figsize=(6,6))
+        pyplot.hexbin(xall, yall, gridsize=256, cmap="Blues", extent=(0, xall.max(), 0, 1))
+        highlight = exprM_stat2.loc[genelist_highNormGini]
+        pyplot.scatter(highlight["log2.Maxs"], highlight["Gini"], color="red", s=10, label="High Norm.Gini genes")
+        pyplot.xlabel("log2( Max Expression Level )")
+        pyplot.ylabel("Gini")
+        pyplot.title(f"Gene num={len(genelist_highNormGini)}\nHighNormGini={expr_params.norm_gini_cutoff}")
+        pyplot.xlim(0, xall.max())
+        pyplot.ylim(0, 1)
+        pyplot.legend()
+        pyplot.tight_layout()
+        pyplot.savefig(out_pdf)
+        pyplot.close()
+        return genelist_highNormGini
+    elif main_args.type == "RNA-seq":
+        gini_related_table = exprM_stat2
+        gini_related_table_rnaseq = gini_related_table[["log2.Maxs", "Gini", "Norm.Gini2", "Gini.pvalue"]]
+        gini_related_table_rnaseq.insert(0, "Gene", gini_related_table_rnaseq.index)
+        gini_related_table_rnaseq.columns = ["Gene", "log2( Max Expression Level )", "Raw Gini Index", "Normalized Gini Index", "p-value"]
+        gini_related_table_rnaseq.to_csv(os.path.join(main_args.out, "Gini_related_table_RNA-seq.csv"), index=False)
+        out_pdf = os.path.join(main_args.out, "figures", f"{expr_params.experiment_id}_smoothScatter_pvalue_gene.pdf")
+        pyplot.figure(figsize=(6,6))
+        pyplot.hexbin(xall, yall, gridsize=256, cmap="Blues", extent=(0, xall.max(), 0, 1))
+        highlight = exprM_stat2.loc[genelist_top_pvalue]
+        pyplot.scatter(highlight["log2.Maxs"], highlight["Gini"], color="red", s=10, label="Top p-value genes")
+        pyplot.xlabel("log2( Max Expression Level )")
+        pyplot.ylabel("Gini")
+        pyplot.title(f"Gene num={len(genelist_top_pvalue)}\nTop p-value genes={expr_params.gini_pvalue_cutoff}")
+        pyplot.xlim(0, xall.max())
+        pyplot.ylim(0, 1)
+        pyplot.legend()
+        pyplot.tight_layout()
+        pyplot.savefig(out_pdf)
+        pyplot.close()
+        return genelist_top_pvalue
+    else:
+        raise ValueError(f"Unknown type: {main_args.type}")
+
+
+
 
 
 
