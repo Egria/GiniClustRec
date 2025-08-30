@@ -4,6 +4,7 @@ import numpy
 import warnings
 import os
 from matplotlib import pyplot
+from scipy import stats
 from statsmodels.nonparametric.smoothers_lowess import lowess
 from .GiniClust_parameters import GiniClust_Parameters
 
@@ -53,7 +54,6 @@ def giniClust_fitting(exprM_raw_counts_filter:pandas.DataFrame, main_args: argpa
     log2_maxs = exprM_stat1["log2.Maxs"]
     gini = exprM_stat1["Gini"]
     maxs = exprM_stat1["Maxs"]
-
     # fitting in max-gini space
     x = exprM_stat1["log2.Maxs"].to_numpy()
     y = exprM_stat1["Gini"].to_numpy()
@@ -65,7 +65,7 @@ def giniClust_fitting(exprM_raw_counts_filter:pandas.DataFrame, main_args: argpa
         "log2.Maxs": x,
         "Norm.Gini": residuals,
         "Gini.fitted": fitted
-    })
+    }, index=exprM_stat1.index)
 
     # remove 25% of first round outlier genes, do second round loess
     gini_loess_fit_residual = pandas.Series(exprM_stat1["Norm.Gini"].to_numpy(), index=exprM_stat1.index)
@@ -137,19 +137,69 @@ def giniClust_fitting(exprM_raw_counts_filter:pandas.DataFrame, main_args: argpa
         "x": log2_maxs_outliers,
         "y": gini_outliers_predict
     }).drop_duplicates()
-    outliers_predict_x_y_uniq.plot(x="x", y="y", kind="scatter")
-    pyplot.xlabel("log2(Max expression outliers)")
-    pyplot.ylabel("Predicted Gini")
-    pyplot.title("Outlier Predictions")
-    pyplot.show()
+    #outliers_predict_x_y_uniq.plot(x="x", y="y", kind="scatter")
+    #pyplot.xlabel("log2(Max expression outliers)")
+    #pyplot.ylabel("Predicted Gini")
+    #pyplot.title("Outlier Predictions")
+    #pyplot.show()
 
     # plot whole fit 2
     gini_loess_fit_2_full_x_y_uniq = pandas.concat([gini_loess_fit_2_x_y_uniq, outliers_predict_x_y_uniq], axis=0)
-    gini_loess_fit_2_full_x_y_uniq.plot(x="x", y="y", kind="scatter")
-    pyplot.xlabel("log2(Max expression outliers)")
-    pyplot.ylabel("Fitted/Predicted Gini")
-    pyplot.title("LOESS fit (inliers) + predicted outliers")
-    pyplot.show()
+    #gini_loess_fit_2_full_x_y_uniq.plot(x="x", y="y", kind="scatter")
+    #pyplot.xlabel("log2(Max expression outliers)")
+    #pyplot.ylabel("Fitted/Predicted Gini")
+    #pyplot.title("LOESS fit (inliers) + predicted outliers")
+    #pyplot.show()
+
+    # calculate normalized_gini_score2
+    normalized_gini_score2 = numpy.zeros(len(gini_loess_fit_residual), dtype=float)
+    residuals2 = y2 - fitted2
+    normalized_gini_score2[id_genes_loess_fit] = residuals2
+    normalized_gini_score2[id_outliers_loess_fit] = gini[id_outliers_loess_fit].to_numpy() - gini_outliers_predict
+    gini_fitted2 = gini - normalized_gini_score2
+    print(gini_fitted2)
+    print(exprM_stat1.shape)
+    exprM_stat1 = exprM_stat1.loc[:, ["Maxs", "Gini", "log2.Maxs", "Gini.fitted", "Norm.Gini"]].copy()
+    exprM_stat1["Gini.fitted2"] = gini_fitted2
+    exprM_stat1["Norm.Gini2"] = normalized_gini_score2
+    z = (exprM_stat1["Norm.Gini2"] - exprM_stat1["Norm.Gini2"].mean()) / exprM_stat1["Norm.Gini2"].std(ddof=1)
+    gini_pvalue = stats.norm.cdf(-numpy.abs(z))
+    exprM_stat2 = exprM_stat1.copy()
+    exprM_stat2["Gini.pvalue"] = gini_pvalue
+
+    # for each measurement, first ranked by themselves.
+    # identify High Gini Genes with Norm.Gini
+    exprM_stat2 = exprM_stat2.sort_values("Norm.Gini2", ascending=False)
+    genelist_highNormGini = exprM_stat2.loc[exprM_stat2["Norm.Gini2"] > expr_params.norm_gini_cutoff].index
+    print(len(genelist_highNormGini))
+
+    # identify High Gini Genes with pvalue
+    exprM_stat2 = exprM_stat2.sort_values("Gini.pvalue", ascending=True)
+    genelist_top_pvalue = exprM_stat2.loc[(exprM_stat2["Gini.pvalue"] < expr_params.gini_pvalue_cutoff)&(exprM_stat2["Norm.Gini2"] > 0)].index
+    print(len(genelist_top_pvalue))
+
+    # plot figures
+    xall = exprM_stat2["log2.Maxs"]
+    yall = exprM_stat2["Gini"]
+    yfit2 = gini_fitted2
+
+    # histogram of pvalue
+    pvals = exprM_stat2["Gini.pvalue"]
+    neglog10_p = -numpy.log10(pvals)
+    main_title = (f"Histogram of -log10(Gini.pvalue)\n"
+                  f"cutoff={expr_params.gini_pvalue_cutoff}\n"
+                  f"Gene num = {len(genelist_top_pvalue)}")
+    out_path = os.path.join(main_args.out, "figures", f"{expr_params.experiment_id}_histogram_of_Normalized.Gini.Score.pdf")
+    pyplot.figure(figsize=(6,6))
+    pyplot.hist(neglog10_p, bins=100, color="lightgray", edgecolor="black")
+    pyplot.axvline(-numpy.log10(expr_params.gini_pvalue_cutoff), color="red", linestyle="-")
+    pyplot.title(main_title)
+    pyplot.xlabel("-log10(Gini.pvalue)")
+    pyplot.ylabel("GeneCount")
+    pyplot.tight_layout()
+    pyplot.savefig(out_path)
+
+
 
 
 
