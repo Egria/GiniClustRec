@@ -7,6 +7,7 @@ from function.GiniClust_Preprocess import giniClust_preprocess
 from function.GiniClust_Filtering import giniClust_filtering
 from function.GiniClust_Fitting import giniClust_fitting
 from function.GiniClust_Clustering import giniClust_clustering
+from function.GiniClust_tSNE import giniClust_tSNE
 
 # Set work directory
 workdir = os.getcwd()
@@ -58,4 +59,7 @@ cell_cell_distance = cluster_results["cell_cell_dist"]
 c_membership = cluster_results["c_membership"]
 clustering_membership_r = cluster_results["clustering_membership_r"]
 rare_cells_list_all = cluster_results["rare_cell"]
+
+# tSNE visualization
+giniClust_tSNE(cell_cell_distance, c_membership, args, params)
 

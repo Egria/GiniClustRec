@@ -127,6 +127,57 @@ def giniClust_clustering(exprM_raw_counts_filter:pandas.DataFrame, main_args:arg
         return retdict
 
     elif main_args.type == "qPCR":
-        pass
+        exprM_rgcc_final_log2 = pandas.DataFrame(numpy.log2(exprM_raw_counts_filter.loc[genelist_final, :] + 0.1))
+        dist_cor = 1 - exprM_rgcc_final_log2.corr(method = "pearson")
+        cell_cell_cor_distance = pandas.DataFrame((dist_cor + 0.01).values, index=exprM_rgcc_final_log2.columns, columns=exprM_rgcc_final_log2.columns)
+        title = f"eps.{expr_params.eps}.MinPts.{expr_params.minPts}"
+        db = DBSCAN(eps=expr_params.eps, min_samples=expr_params.minPts, metric="precomputed")
+        labels = db.fit_predict(cell_cell_cor_distance.to_numpy())
+        data_mclust = pandas.DataFrame({"Cell":cell_cell_cor_distance.index, "Cluster": labels}).set_index("Cell")
+        o_membership = ["db_" + str(c) for c in data_mclust["Cluster"]]
+        o_membership = pandas.Series(o_membership, index=data_mclust.index)
+        o_membership = o_membership.replace({"db_-1": "Singleton"})
+        c_membership = o_membership.copy()
+        cluster_stat = c_membership.value_counts().reset_index()
+        cluster_stat.columns = ["o_membership", "Freq"]
+        cluster_stat = cluster_stat[cluster_stat["o_membership"] != "Singleton"]
+        cluster_stat = cluster_stat.sort_values("Freq", ascending=False).reset_index(drop=True)
+        cn = cluster_stat.shape[0]
+        cluster_stat["new_membership"] = [f"Cluster_{i + 1}" for i in range(cn)]
+        mapping = dict(zip(cluster_stat["o_membership"], cluster_stat["new_membership"]))
+        c_membership = c_membership.replace(mapping)
+        cluster_stat = c_membership.value_counts().reset_index()
+        cluster_stat.columns = ["Cluster", "Freq"]
+        cluster_id = pandas.DataFrame(
+            {"Cell_ID": cell_cell_cor_distance.index, "GiniClust_membership": c_membership.astype(str).values})
+        print(cluster_id["GiniClust_membership"].value_counts())
+        print(c_membership.value_counts())
+
+        # if a cluster smaller than 5% of the total cell number, we call it a rare cell types cluster
+        cell_num = exprM_raw_counts_filter.shape[1] * expr_params.rare_p
+        rare_cells_list_all = {}
+        for c in pandas.unique(c_membership):
+            cells_in_c = cell_cell_cor_distance.index[c_membership == c]
+            if (len(cells_in_c) < cell_num) and (c != "Singleton"):
+                rare_cells_list_all[c] = list(cells_in_c)
+        rare_cluster_names = list(rare_cells_list_all.keys())
+        print(rare_cluster_names)
+
+        clustering_membership_r = pandas.DataFrame(
+            {"cell.ID": cell_cell_cor_distance.index.astype(str), "cluster.ID": c_membership.astype(str).values})
+        clustering_membership_r.to_csv(os.path.join(main_args.out, f"{expr_params.experiment_id}_clusterID.csv"),
+                                       index=False)
+        with open(os.path.join(main_args.out, f"{expr_params.experiment_id}_rare_cells_list.txt"), "w") as fh:
+            for cluster_name, cells in rare_cells_list_all.items():
+                fh.write(f"{cluster_name} :\n")
+                if cells:
+                    for i in range(0, len(cells), 20):
+                        line = ", ".join(map(str, cells[i:i + 20]))
+                        fh.write(line + "\n")
+                fh.write("\n")
+        retdict = {"cell_cell_dist": cell_cell_cor_distance, "c_membership": c_membership,
+                   "clustering_membership_r": clustering_membership_r, "rare_cell": rare_cells_list_all}
+        return retdict
     else:
         raise ValueError("Unknown type")
+        return {}
