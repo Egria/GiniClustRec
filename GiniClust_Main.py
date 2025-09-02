@@ -8,6 +8,7 @@ from function.GiniClust_Filtering import giniClust_filtering
 from function.GiniClust_Fitting import giniClust_fitting
 from function.GiniClust_Clustering import giniClust_clustering
 from function.GiniClust_tSNE import giniClust_tSNE
+from function.DE_t_test import de_t_test
 
 # Set work directory
 workdir = os.getcwd()
@@ -63,3 +64,10 @@ rare_cells_list_all = cluster_results["rare_cell"]
 # tSNE visualization
 giniClust_tSNE(cell_cell_distance, c_membership, args, params)
 
+# Analysis of differentially expressed genes
+if args.type == "RNA-seq":
+    pass
+elif args.type == "qPCR":
+    de_t_test(exprM_rawCounts_filter, rare_cells_list_all, c_membership, geneList_final, args, params)
+else:
+    raise ValueError("Unknown type")
