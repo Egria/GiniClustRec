@@ -9,6 +9,7 @@ from function.GiniClust_Fitting import giniClust_fitting
 from function.GiniClust_Clustering import giniClust_clustering
 from function.GiniClust_tSNE import giniClust_tSNE
 from function.DE_t_test import de_t_test
+from function.DE_MAST import de_mast
 
 # Set work directory
 workdir = os.getcwd()
@@ -66,7 +67,7 @@ giniClust_tSNE(cell_cell_distance, c_membership, args, params)
 
 # Analysis of differentially expressed genes
 if args.type == "RNA-seq":
-    pass
+    de_mast(exprM_rawCounts_filter, rare_cells_list_all, c_membership, clustering_membership_r, args, params)
 elif args.type == "qPCR":
     de_t_test(exprM_rawCounts_filter, rare_cells_list_all, c_membership, geneList_final, args, params)
 else:
