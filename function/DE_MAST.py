@@ -2,6 +2,7 @@ import argparse
 import matplotlib_venn
 import numpy
 import pandas
+import warnings
 import os
 from matplotlib import pyplot
 from sklearn import metrics
@@ -75,6 +76,7 @@ def de_mast(exprM_rawCounts_filter: pandas.DataFrame, rare_cells_list_all:dict, 
         vbeta_1 = vbeta.copy()
 
         # MAST
+        warnings.filterwarnings("ignore")
         py_mast = False
         if py_mast:
             col_data = pandas.DataFrame({"Population": pandas.Categorical(groups, categories=["Cluster_1", rare_cluster])}, index=counts.columns)
