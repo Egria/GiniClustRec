@@ -67,7 +67,7 @@ giniClust_tSNE(cell_cell_distance, c_membership, args, params)
 
 # Analysis of differentially expressed genes
 if args.type == "RNA-seq":
-    de_mast(exprM_rawCounts_filter, rare_cells_list_all, c_membership, clustering_membership_r, args, params)
+    de_mast(exprM_rawCounts_filter, rare_cells_list_all, c_membership, geneList_final, clustering_membership_r, args, params)
 elif args.type == "qPCR":
     de_t_test(exprM_rawCounts_filter, rare_cells_list_all, c_membership, geneList_final, args, params)
 else:
